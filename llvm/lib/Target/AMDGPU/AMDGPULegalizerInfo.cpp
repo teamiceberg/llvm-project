@@ -612,10 +612,12 @@ AMDGPULegalizerInfo::AMDGPULegalizerInfo(const GCNSubtarget &ST_,
 
   // Whether this is legal depends on the floating point mode for the function.
   auto &FMad = getActionDefinitionsBuilder(G_FMAD);
-  if (ST.hasMadF16())
+  if (ST.hasMadF16() && ST.hasMadMacF32Insts())
     FMad.customFor({S32, S16});
-  else
+  else if (ST.hasMadMacF32Insts())
     FMad.customFor({S32});
+  else if (ST.hasMadF16())
+    FMad.customFor({S16});
   FMad.scalarize(0)
       .lower();
 
@@ -931,7 +933,7 @@ AMDGPULegalizerInfo::AMDGPULegalizerInfo(const GCNSubtarget &ST_,
     const bool IsStore = Op == G_STORE;
 
     auto &Actions = getActionDefinitionsBuilder(Op);
-    // Whitelist some common cases.
+    // Explicitly list some common cases.
     // TODO: Does this help compile time at all?
     Actions.legalForTypesWithMemDesc({{S32, GlobalPtr, 32, GlobalAlign32},
                                       {V2S32, GlobalPtr, 64, GlobalAlign32},
@@ -2001,10 +2003,12 @@ bool AMDGPULegalizerInfo::legalizeSinCos(
   return true;
 }
 
-bool AMDGPULegalizerInfo::buildPCRelGlobalAddress(
-  Register DstReg, LLT PtrTy,
-  MachineIRBuilder &B, const GlobalValue *GV,
-  unsigned Offset, unsigned GAFlags) const {
+bool AMDGPULegalizerInfo::buildPCRelGlobalAddress(Register DstReg, LLT PtrTy,
+                                                  MachineIRBuilder &B,
+                                                  const GlobalValue *GV,
+                                                  int64_t Offset,
+                                                  unsigned GAFlags) const {
+  assert(isInt<32>(Offset + 4) && "32-bit offset is expected!");
   // In order to support pc-relative addressing, SI_PC_ADD_REL_OFFSET is lowered
   // to the following code sequence:
   //
