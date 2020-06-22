@@ -14,7 +14,7 @@
 #ifndef BRAINF_H
 #define BRAINF_H
 
-#include "llvm/IR/IRBuilder.h"
+#include "lvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include <istream>

@@ -15,6 +15,9 @@
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+
 using namespace llvm;
 
 #define DEBUG_TYPE "hello"
@@ -38,6 +41,10 @@ namespace {
 
 char Hello::ID = 0;
 static RegisterPass<Hello> X("hello", "Hello World Pass");
+/*static llvm::RegisterStandardPasses A(
+    llvm::PassManagerBuilder::EP_EarlyAsPossible,
+    [](const llvm::PassManagerBuilder &Builder,
+       llvm::legacy::PassManagerBase &PM) { PM.add(new Hello()); });*/
 
 namespace {
   // Hello2 - The second implementation with getAnalysisUsage implemented.
@@ -62,3 +69,8 @@ namespace {
 char Hello2::ID = 0;
 static RegisterPass<Hello2>
 Y("hello2", "Hello World Pass (with getAnalysisUsage implemented)");
+
+static llvm::RegisterStandardPasses B(
+    llvm::PassManagerBuilder::EP_EarlyAsPossible,
+    [](const llvm::PassManagerBuilder &Builder,
+       llvm::legacy::PassManagerBase &PM) { PM.add(new Hello2()); });

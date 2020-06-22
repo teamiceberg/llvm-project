@@ -15,7 +15,7 @@
 
 namespace llvm {
 class TargetTransformInfo;
-
+static unsigned GL_MAXARGS = 0;
 /// Argument promotion pass.
 ///
 /// This pass walks the functions in each SCC and for each one tries to
@@ -25,7 +25,7 @@ class ArgumentPromotionPass : public PassInfoMixin<ArgumentPromotionPass> {
   unsigned MaxElements;
 
 public:
-  ArgumentPromotionPass(unsigned MaxElements = 3u) : MaxElements(MaxElements) {}
+  ArgumentPromotionPass(unsigned MaxElements = GL_MAXARGS) : MaxElements(MaxElements) {}
 
   /// Check if callers and the callee \p F agree how promoted arguments would be
   /// passed. The ones that they do not agree on are eliminated from the sets but

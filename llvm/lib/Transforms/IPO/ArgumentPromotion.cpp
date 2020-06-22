@@ -90,6 +90,8 @@ using namespace llvm;
 
 #define DEBUG_TYPE "argpromotion"
 
+cl::opt<unsigned, true> argmax("maxar", cl::Required, cl::desc("Specify number of args to promote"), cl::value_desc("maxargs"), cl::location(llvm::GL_MAXARGS));
+
 STATISTIC(NumArgumentsPromoted, "Number of pointer arguments promoted");
 STATISTIC(NumAggregatesPromoted, "Number of aggregate arguments promoted");
 STATISTIC(NumByValArgsPromoted, "Number of byval arguments promoted");
@@ -1108,7 +1110,7 @@ INITIALIZE_PASS_END(ArgPromotion, "argpromotion",
                     "Promote 'by reference' arguments to scalars", false, false)
 
 Pass *llvm::createArgumentPromotionPass(unsigned MaxElements) {
-  return new ArgPromotion(MaxElements);
+  return new ArgPromotion(GL_MAXARGS);
 }
 
 bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
