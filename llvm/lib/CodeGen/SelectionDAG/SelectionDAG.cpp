@@ -3166,6 +3166,15 @@ KnownBits SelectionDAG::computeKnownBits(SDValue Op, const APInt &DemandedElts,
     Known.One  &= (~Known.Zero);
     break;
   }
+  case ISD::AssertAlign: {
+    unsigned LogOfAlign = Log2(cast<AssertAlignSDNode>(Op)->getAlign());
+    assert(LogOfAlign != 0);
+    // If a node is guaranteed to be aligned, set low zero bits accordingly as
+    // well as clearing one bits.
+    Known.Zero.setLowBits(LogOfAlign);
+    Known.One.clearLowBits(LogOfAlign);
+    break;
+  }
   case ISD::FGETSIGN:
     // All bits are zero except the low bit.
     Known.Zero.setBitsFrom(1);
@@ -5186,6 +5195,34 @@ SDValue SelectionDAG::foldConstantFPMath(unsigned Opcode, const SDLoc &DL,
   return SDValue();
 }
 
+SDValue SelectionDAG::getAssertAlign(const SDLoc &DL, SDValue Val, Align A) {
+  assert(Val.getValueType().isInteger() && "Invalid AssertAlign!");
+
+  // There's no need to assert on a byte-aligned pointer. All pointers are at
+  // least byte aligned.
+  if (A == Align(1))
+    return Val;
+
+  FoldingSetNodeID ID;
+  AddNodeIDNode(ID, ISD::AssertAlign, getVTList(Val.getValueType()), {Val});
+  ID.AddInteger(A.value());
+
+  void *IP = nullptr;
+  if (SDNode *E = FindNodeOrInsertPos(ID, DL, IP))
+    return SDValue(E, 0);
+
+  auto *N = newSDNode<AssertAlignSDNode>(DL.getIROrder(), DL.getDebugLoc(),
+                                         Val.getValueType(), A);
+  createOperands(N, {Val});
+
+  CSEMap.InsertNode(N, IP);
+  InsertNode(N);
+
+  SDValue V(N, 0);
+  NewSDValueDbgMsg(V, "Creating new node: ", this);
+  return V;
+}
+
 SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
                               SDValue N1, SDValue N2, const SDNodeFlags Flags) {
   ConstantSDNode *N1C = dyn_cast<ConstantSDNode>(N1);
@@ -5529,7 +5566,7 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
     // the concat have the same type as the extract.
     if (N2C && N1.getOpcode() == ISD::CONCAT_VECTORS &&
         N1.getNumOperands() > 0 && VT == N1.getOperand(0).getValueType()) {
-      unsigned Factor = VT.getVectorNumElements();
+      unsigned Factor = VT.getVectorMinNumElements();
       return N1.getOperand(N2C->getZExtValue() / Factor);
     }
 
@@ -6374,8 +6411,8 @@ SDValue SelectionDAG::getMemcpy(SDValue Chain, const SDLoc &dl, SDValue Dst,
   // code. If the target chooses to do this, this is the next best.
   if (TSI) {
     SDValue Result = TSI->EmitTargetCodeForMemcpy(
-        *this, dl, Chain, Dst, Src, Size, Alignment.value(), isVol,
-        AlwaysInline, DstPtrInfo, SrcPtrInfo);
+        *this, dl, Chain, Dst, Src, Size, Alignment, isVol, AlwaysInline,
+        DstPtrInfo, SrcPtrInfo);
     if (Result.getNode())
       return Result;
   }
@@ -6487,9 +6524,9 @@ SDValue SelectionDAG::getMemmove(SDValue Chain, const SDLoc &dl, SDValue Dst,
   // Then check to see if we should lower the memmove with target-specific
   // code. If the target chooses to do this, this is the next best.
   if (TSI) {
-    SDValue Result = TSI->EmitTargetCodeForMemmove(
-        *this, dl, Chain, Dst, Src, Size, Alignment.value(), isVol, DstPtrInfo,
-        SrcPtrInfo);
+    SDValue Result =
+        TSI->EmitTargetCodeForMemmove(*this, dl, Chain, Dst, Src, Size,
+                                      Alignment, isVol, DstPtrInfo, SrcPtrInfo);
     if (Result.getNode())
       return Result;
   }
@@ -6590,7 +6627,7 @@ SDValue SelectionDAG::getMemset(SDValue Chain, const SDLoc &dl, SDValue Dst,
   // code. If the target chooses to do this, this is the next best.
   if (TSI) {
     SDValue Result = TSI->EmitTargetCodeForMemset(
-        *this, dl, Chain, Dst, Src, Size, Alignment.value(), isVol, DstPtrInfo);
+        *this, dl, Chain, Dst, Src, Size, Alignment, isVol, DstPtrInfo);
     if (Result.getNode())
       return Result;
   }
@@ -9342,6 +9379,28 @@ SelectionDAG::matchBinOpReduction(SDNode *Extract, ISD::NodeType &BinOp,
         return PartialReduction(PrevOp, MaskEnd);
 
     PrevOp = Op;
+  }
+
+  // Handle subvector reductions, which tend to appear after the shuffle
+  // reduction stages.
+  while (Op.getOpcode() == CandidateBinOp) {
+    unsigned NumElts = Op.getValueType().getVectorNumElements();
+    SDValue Op0 = Op.getOperand(0);
+    SDValue Op1 = Op.getOperand(1);
+    if (Op0.getOpcode() != ISD::EXTRACT_SUBVECTOR ||
+        Op1.getOpcode() != ISD::EXTRACT_SUBVECTOR ||
+        Op0.getOperand(0) != Op1.getOperand(0))
+      break;
+    SDValue Src = Op0.getOperand(0);
+    unsigned NumSrcElts = Src.getValueType().getVectorNumElements();
+    if (NumSrcElts != (2 * NumElts))
+      break;
+    if (!(Op0.getConstantOperandAPInt(1) == 0 &&
+          Op1.getConstantOperandAPInt(1) == NumElts) &&
+        !(Op1.getConstantOperandAPInt(1) == 0 &&
+          Op0.getConstantOperandAPInt(1) == NumElts))
+      break;
+    Op = Src;
   }
 
   BinOp = (ISD::NodeType)CandidateBinOp;

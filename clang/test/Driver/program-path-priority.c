@@ -13,7 +13,7 @@
 /// so only name priority is accounted for, unless we fail to find
 /// anything at all in the prefix.
 
-/// Copy clang to a new dir which will be its
+/// Symlink clang to a new dir which will be its
 /// "program path" for these tests
 // RUN: rm -rf %t && mkdir -p %t
 // RUN: ln -s %clang %t/clang
@@ -69,7 +69,10 @@
 
 /// <default-triple>-gcc has lowest priority so <triple>-gcc
 /// on PATH beats default triple in program path
-// RUN: touch %t/%target_triple-gcc && chmod +x %t/%target_triple-gcc
+/// Darwin triples have a version appended to them, even if set via
+/// LLVM_DEFAULT_TARGET_TRIPLE. So the only way to know for sure is to ask clang.
+// RUN: DEFAULT_TRIPLE=`%t/clang --version | grep "Target:" | cut -d ' ' -f2`
+// RUN: touch %t/$DEFAULT_TRIPLE-gcc && chmod +x %t/$DEFAULT_TRIPLE-gcc
 // RUN: env "PATH=%t/env/" %t/clang -### -target notreal-none-elf %s 2>&1 | \
 // RUN:   FileCheck --check-prefix=DEFAULT_TRIPLE_GCC %s
 // DEFAULT_TRIPLE_GCC: env/notreal-none-elf-gcc
@@ -92,7 +95,7 @@
 /// -B paths are searched separately so default triple will win
 /// if put in one of those even if other paths have higher priority names
 // RUN: mkdir -p %t/prefix
-// RUN: mv %t/%target_triple-gcc %t/prefix
+// RUN: mv %t/$DEFAULT_TRIPLE-gcc %t/prefix
 // RUN: touch %t/notreal-none-elf-gcc && chmod +x %t/notreal-none-elf-gcc
 // RUN: env "PATH=" %t/clang -### -target notreal-none-elf %s -B %t/prefix 2>&1 | \
 // RUN:   FileCheck --check-prefix=DEFAULT_TRIPLE_IN_PREFIX %s
@@ -100,7 +103,7 @@
 // DEFAULT_TRIPLE_IN_PREFIX-NOT: notreal-none-elf-gcc
 
 /// Only if there is nothing in the prefix will we search other paths
-// RUN: rm %t/prefix/%target_triple-gcc
+// RUN: rm %t/prefix/$DEFAULT_TRIPLE-gcc
 // RUN: env "PATH=" %t/clang -### -target notreal-none-elf %s -B %t/prefix 2>&1 | \
 // RUN:   FileCheck --check-prefix=EMPTY_PREFIX_DIR %s
 // EMPTY_PREFIX_DIR: notreal-none-elf-gcc

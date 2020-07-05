@@ -1130,7 +1130,7 @@ Currently, only the following parameter attributes are defined:
 
 .. _attr_align:
 
-``align <n>``
+``align <n>`` or ``align(<n>)``
     This indicates that the pointer value may be assumed by the optimizer to
     have the specified alignment.  If the pointer value does not have the
     specified alignment, behavior is undefined.
@@ -2366,6 +2366,7 @@ as follows:
       starting with ``?`` are not mangled in any way.
     * ``w``: Windows COFF mangling: Similar to ``x``, except that normal C
       symbols do not receive a ``_`` prefix.
+    * ``a``: XCOFF mangling: Private symbols get a ``L..`` prefix.
 ``n<size1>:<size2>:<size3>...``
     This specifies a set of native integer widths for the target CPU in
     bits. For example, it might contain ``n32`` for 32-bit PowerPC,
@@ -4146,7 +4147,13 @@ AMDGPU:
 - ``[0-9]v``: The 32-bit VGPR register, number 0-9.
 - ``[0-9]s``: The 32-bit SGPR register, number 0-9.
 - ``[0-9]a``: The 32-bit AGPR register, number 0-9.
+- ``I``: An integer inline constant in the range from -16 to 64.
+- ``J``: A 16-bit signed integer constant.
 - ``A``: An integer or a floating-point inline constant.
+- ``B``: A 32-bit signed integer constant.
+- ``C``: A 32-bit unsigned integer constant or an integer inline constant in the range from -16 to 64.
+- ``DA``: A 64-bit constant that can be split into two "A" constants.
+- ``DB``: A 64-bit constant that can be split into two "B" constants.
 
 All ARM modes:
 
@@ -4619,7 +4626,7 @@ to the ``add`` instruction using the ``!dbg`` identifier:
     %indvar.next = add i64 %indvar, 1, !dbg !21
 
 Metadata can also be attached to a function or a global variable. Here metadata
-``!22`` is attached to the ``f1`` and ``f2 functions, and the globals ``g1``
+``!22`` is attached to the ``f1`` and ``f2`` functions, and the globals ``g1``
 and ``g2`` using the ``!dbg`` identifier:
 
 .. code-block:: llvm
@@ -19057,6 +19064,40 @@ Arguments:
 
 The ``llvm.expect`` intrinsic takes two arguments. The first argument is
 a value. The second argument is an expected value.
+
+Semantics:
+""""""""""
+
+This intrinsic is lowered to the ``val``.
+
+'``llvm.expect.with.probability``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+
+This intrinsic is similar to ``llvm.expect``. This is an overloaded intrinsic.
+You can use ``llvm.expect.with.probability`` on any integer bit width.
+
+::
+
+      declare i1 @llvm.expect.with.probability.i1(i1 <val>, i1 <expected_val>, double <prob>)
+      declare i32 @llvm.expect.with.probability.i32(i32 <val>, i32 <expected_val>, double <prob>)
+      declare i64 @llvm.expect.with.probability.i64(i64 <val>, i64 <expected_val>, double <prob>)
+
+Overview:
+"""""""""
+
+The ``llvm.expect.with.probability`` intrinsic provides information about
+expected value of ``val`` with probability(or confidence) ``prob``, which can
+be used by optimizers.
+
+Arguments:
+""""""""""
+
+The ``llvm.expect.with.probability`` intrinsic takes three arguments. The first
+argument is a value. The second argument is an expected value. The third
+argument is a probability.
 
 Semantics:
 """"""""""
