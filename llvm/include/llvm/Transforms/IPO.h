@@ -29,6 +29,17 @@ class BasicBlock;
 class GlobalValue;
 class raw_ostream;
 
+// optional OPT flag 'argpromotion-max-elements-to-promote' populates
+// NumAggregateElemsPromoted variable used in the Argument Promotion pass.
+// Currently, argument promotion pass promotes upto three elements in an
+// aggregeate argument if these elements are safe to promote.
+// If users need to promote more than 3 elements in an aggregate, that needs
+// to be specified through the  'argpromotion-max-elements-to-promote' flag
+// on the OPT command line, which then populates the NumAggregateElemsPromoted
+// variable. see ArgumentPromotion{.cpp,.h} for how the
+// NumAggregateElemsPromoted variable is used.
+extern unsigned NumAggregateElemsPromoted;
+
 //===----------------------------------------------------------------------===//
 //
 // These functions removes symbols from functions and modules.  If OnlyDebugInfo
@@ -149,7 +160,8 @@ ModulePass *createDeadArgHackingPass();
 /// be passed by value if the number of elements passed is smaller or
 /// equal to maxElements (maxElements == 0 means always promote).
 ///
-Pass *createArgumentPromotionPass(unsigned maxElements = 3);
+Pass *
+createArgumentPromotionPass(unsigned maxElements = NumAggregateElemsPromoted);
 
 //===----------------------------------------------------------------------===//
 /// createOpenMPOptLegacyPass - OpenMP specific optimizations.

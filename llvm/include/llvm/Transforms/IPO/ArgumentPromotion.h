@@ -14,6 +14,7 @@
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
+
 class TargetTransformInfo;
 
 /// Argument promotion pass.

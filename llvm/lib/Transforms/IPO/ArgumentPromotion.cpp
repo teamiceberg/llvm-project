@@ -90,6 +90,17 @@ using namespace llvm;
 
 #define DEBUG_TYPE "argpromotion"
 
+// opt flag to capture user supplied value for global variable
+// NumAggregateElemsPromoted
+cl::opt<unsigned, true> argmax(
+    "argpromotion-max-elements-to-promote",
+    cl::desc("Specify maximum number of elements of an aggregate to promote.\
+      Currently, promotion of aggregates is limited to only promote \ 
+      up to three elements of the aggregate "),
+    cl::Hidden, cl::location(llvm::NumAggregateElemsPromoted));
+
+unsigned llvm::NumAggregateElemsPromoted = 3;
+
 STATISTIC(NumArgumentsPromoted, "Number of pointer arguments promoted");
 STATISTIC(NumAggregatesPromoted, "Number of aggregate arguments promoted");
 STATISTIC(NumByValArgsPromoted, "Number of byval arguments promoted");
@@ -1069,7 +1080,7 @@ struct ArgPromotion : public CallGraphSCCPass {
   // Pass identification, replacement for typeid
   static char ID;
 
-  explicit ArgPromotion(unsigned MaxElements = 3)
+  explicit ArgPromotion(unsigned MaxElements = NumAggregateElemsPromoted)
       : CallGraphSCCPass(ID), MaxElements(MaxElements) {
     initializeArgPromotionPass(*PassRegistry::getPassRegistry());
   }
